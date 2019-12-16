@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<meta id="i18n_pagename" content="index-common">
+	    <meta name="keywords" content=""/>
+	    <meta name="description" content=""/>
+	    <meta http-equiv="Access-Control-Allow-Origin" content="*">
+		<link rel="stylesheet" type="text/css" href="css/bootstrap/bootstrap.min.css"/>
+		<link rel="stylesheet" type="text/css" href="css/libs/font-awesome.css"/>	
+		<link href="css/bootstrap-switch.min.css" rel="stylesheet" />
+		<link rel="stylesheet" type="text/css" href="css/base.css"/>
+		<link rel="stylesheet" href="css/main.css" />
+		<link rel="stylesheet" href="css/loading.css" />
+		<link type="image/x-icon" href="img/favicon.png" rel="shortcut icon"/>
+		<script src="js/util_gw.js"></script>
+		<style type="text/css">
+			.popup,.popbox{
+					display: none;
+				}
+		</style>
+	</head>
+	
+	<body onload="mode()">
+		<div class="guest_net dhcp">
+			<form action="/boafrm/formNewTcpipSetup" method="POST" name="tcpip">
+				<div class="dhcp_wrap">
+					<div class="form_group_dhcp"><label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="ip_dhcp"></label>&nbsp;&nbsp;<input class="form_input" type="text" name="lan_ip" value="<% getInfo("ip-rom"); %>"/></div>
+					<div class="form_group_dhcp"><label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="mask_dhcp"></label>&nbsp;&nbsp;<input class="form_input" type="text" name="lan_mask" value="<% getInfo("mask-rom"); %>"/></div>
+					<div class="form_group_dhcp"><label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="gateway_dhcp"></label>&nbsp;&nbsp;<input class="form_input" type="text" name="lan_gateway" value="<% getInfo("gateway-rom"); %>"/></div>
+
+					<div class="form_group_dhcp">
+						<label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="dhcp_dhcp"></label>&nbsp;&nbsp;
+						<select name="dhcp" onChange="dhcpChange(document.tcpip.dhcp.selectedIndex)">
+							 <%  getDHCPModeCombobox(); %> 
+								<!--<option value="0" class="i18n" name="Disable_dhcp"></option>
+								<option value="1" class="i18n" name="Client_dhcp"></option>
+								<option value="2" class="i18n" name="Server_dhcp"></option>-->
+							</select>
+						
+					</div>
+					<div class="form_group_dhcp"><label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="clientRange_dhcp"></label>&nbsp;&nbsp;<input style="margin-left: 5px;margin-right: 10px;" class="form_input_dhcp" type="text" name="dhcpRangeStart"  value="<% getInfo("dhcpRangeStart"); %>" />-<input class="form_input_dhcp" type="text" name="dhcpRangeEnd" style="margin-right: 16px;margin-left: 10px;" value="<% getInfo("dhcpRangeEnd"); %>" /></div>
+					<div class="dhcp_server_btn">
+						<button type="button" value="Show Client" name="dhcpClientTbl" onClick="dhcpTblClick('dhcptbl.html')" class="i18n"></button>
+					</div>
+					<div class="form_group_dhcp"><label style="font-size: 16px;color: #4d4d4d;" class="i18n" name="leaseTime_dhcp"></label>&nbsp;&nbsp;<input class="form_input" type="text" name="dhcpLeaseTime" value="<% getInfo("dhcpLeaseTime"); %>"/><span class="i18n" name="time_dhcp"></span></div>
+					<div class="dhcp_server_btn">
+						<button  type="submit" value="Save & Apply" name="save_apply" onClick="return saveChanges()" class="i18n"></button>
+					</div>
+					<input type="hidden" value="/tcpiplan.htm" name="submit-url">
+				</div>
+			</form>
+			<div class="popup"></div>
+				<div class="popbox window" id="center">
+					<div class="loading">
+			    
+					     <p>
+					
+					  <i></i>
+					  <i></i>
+					  <i></i>
+					  <i></i>
+					  <i></i>
+					</p>
+					<!--<span class="inloading i18n" name="inloading"></span>-->
+					</div>
+				</div>
+		</div>
+		<script src="js/jquery.js"></script>
+		<script src="js/bootstrap.js"></script>
+		<script src="js/bootstrap-switch.min.js"></script>
+		<script src="js/jquery.cookie.js"></script>
+	    <!-- 加载语言包文件 -->
+	    <script src="js/jquery.i18n.properties.js"></script>
+	    <script src="js/language.js"></script>
+		<script>
+			var wlan_num =<% getIndex("show_wlan_num"); %> ;
+			var initialDhcp;
+			//弹出窗口******start********
+			//获取窗口的高度 
+			 var windowHeight; 
+			 //获取窗口的宽度 
+			 var windowWidth; 
+			 //获取弹窗的宽度 
+			 var popWidth; 
+			 //获取弹窗高度 
+			 var popHeight; 
+			 function init(){ 
+			    windowHeight=$(window).height(); 
+			    windowWidth=$(window).width(); 
+			    popHeight=$(".window").height(); 
+			    popWidth=$(".window").width(); 
+			 } 
+			 initialDhcp = document.tcpip.dhcp.selectedIndex;
+			dhcpChange(initialDhcp);
+			 var i18nLanguage=getCookie('userLanguage');
+			 var tcpip_reservedip_alert,tcpip_lan_start_ip,tcpip_lan_ip_alert,tcpip_lan_end_ip,tcpip_lan_invalid_gw_ip,tcpip_lan_invalid_rang;
+			 var tcpip_check_ip_msg;
+			 if(i18nLanguage=='en'){
+			 	tcpip_reservedip_alert='Invalid IP address value!\nIt should not be reserved IP address(127.x.x.x).';
+			 	tcpip_lan_start_ip = 'Invalid DHCP client start address!';
+				tcpip_lan_end_ip = 'Invalid DHCP client End address!';
+				tcpip_lan_ip_alert = '\nIt should be located in the same subnet of the current IP address.';
+				tcpip_lan_invalid_rang = 'Invalid DHCP client address range!\nEnding address should be greater than starting address.\n And limit ip pool size to 512';
+				tcpip_lan_invalid_gw_ip = 'Invalid gateway address!';
+				tcpip_check_ip_msg = 'Invalid IP address';
+			 }else{
+			 	tcpip_reservedip_alert='无效的IP地址!\nIP地址不能是保留IP地址(127.x.x.x).';
+			 	tcpip_lan_start_ip = '无效的DHCP客户端起始地址';
+				tcpip_lan_end_ip = '无效的DHCP客户端结束地址';
+				tcpip_lan_ip_alert = '\n必须是在子网内的地址。';
+				tcpip_lan_invalid_rang = '无效的客户端地址范围\n结束地址必须大于起始地址。';
+				tcpip_lan_invalid_gw_ip = '网关地址无效！';
+				tcpip_check_ip_msg = '无效的IP地址';
+			 }
+			 //定义弹出居中窗口的方法 
+		     function popCenterWindow(){ 
+		         init(); 
+		         //计算弹出窗口的左上角Y的偏移量 
+				 var popY=(windowHeight-popHeight)/2; 
+			     var popX=(windowWidth-popWidth)/2; 
+			      //设定窗口的位置 
+			     $("#center").css("top",popY).css("left",popX).slideToggle("slow");  
+		      }
+	    	
+	    	//弹出窗口******end********
+			function mode()
+			{
+				var opmode=<% getIndex("wlanMode"); %> ;
+			
+				if( opmode > 3 )
+					disableTextField(document.tcpip.stp);
+			}
+			function isStaticIpInDHCPIpRange()//if static ip in DHCP ip range, return true; else, return false.
+			{
+				var DHCPRangeStartIp=document.tcpip.dhcpRangeStart.value;
+				var DHCPRangeEndIp=document.tcpip.dhcpRangeEnd.value;
+				var staticDHCPEntryNum= <% getInfo("static_dhcp_entry_num"); %>;
+				if(staticDHCPEntryNum == 0){
+						return true;
+				}else //staticDHCPEntryNum > 0
+				{
+					for(var i=1; i<=staticDHCPEntryNum; i++){
+						var x=document.getElementById('staticIpTable').rows[i].cells;
+						var staticIpString=x[0].innerHTML;                  //<font size="2">192.168.1.180</font>
+						var subStaticIpString1=staticIpString.substring(13);//192.168.1.180</font>
+						var endpoint=subStaticIpString1.indexOf("<");
+						var subStaticIpString2=subStaticIpString1.substring(0,endpoint);//192.168.1.180
+						for(i=1; i<=4; i++){
+							if((getDigit(subStaticIpString2,i)<getDigit(DHCPRangeStartIp,i)) || (getDigit(subStaticIpString2,i) > getDigit(DHCPRangeEndIp,i))){
+								return false;
+							}
+						}
+					}
+				return true;
+				}
+			}
+						//dhcp模式
+			function dhcpChange(index)
+			{
+				var dF = document.tcpip;
+			  if ( index == 0 || index == 1) {
+				  disableTextField(document.tcpip.dhcpRangeStart);
+			   	  disableTextField(document.tcpip.dhcpRangeEnd);
+				  disableButton( document.tcpip.dhcpClientTbl );	  	  
+			  }
+			  else {
+			   	  enableTextField(document.tcpip.dhcpRangeStart);
+			   	  enableTextField(document.tcpip.dhcpRangeEnd);
+				  enableButton( document.tcpip.dhcpClientTbl );			   	  
+			  }
+			}
+			//show client
+			function dhcpTblClick(url) {
+				if ( document.tcpip.dhcp.selectedIndex == 2) {
+					openWindow(url, 'DHCPTbl',600, 400 );
+				}
+			}
+			//保存
+			function saveChanges()
+			{
+				if((checkIptvAddr(document.tcpip.lan_ip.value,document.tcpip.lan_mask.value)!=checkIptvAddr(document.tcpip.dhcpRangeStart.value,document.tcpip.lan_mask.value))||(checkIptvAddr(document.tcpip.dhcpRangeStart.value,document.tcpip.lan_mask.value)!=checkIptvAddr(document.tcpip.dhcpRangeEnd.value,document.tcpip.lan_mask.value))){
+					alert(tcpip_lan_ip_alert);
+					return false;
+				}
+				if ( !checkClientRange(document.tcpip.dhcpRangeStart.value,document.tcpip.dhcpRangeEnd.value) ) {
+					alert(tcpip_lan_invalid_rang);
+					document.tcpip.dhcpRangeStart.focus();
+					return false;
+			        }
+				 if (isReservedIpAddress(document.tcpip.lan_ip.value) == true)
+			  {
+					alert(tcpip_reservedip_alert);
+					return false;
+			  }
+			  
+			  if (checkIPMask(document.tcpip.lan_mask) == false)
+			  	return false ;
+			  
+			  if(checkHostIPValid(document.tcpip.lan_ip,document.tcpip.lan_mask,tcpip_check_ip_msg)== false) 
+				return false;
+			  if ( document.tcpip.dhcp.selectedIndex == 2) {
+			
+				if(checkHostIPValid(document.tcpip.dhcpRangeStart,document.tcpip.lan_mask,tcpip_lan_start_ip)== false) 
+					return false;
+			
+				if ( !checkSubnet(document.tcpip.lan_ip.value,document.tcpip.lan_mask.value,document.tcpip.dhcpRangeStart.value)) {
+					alert(tcpip_lan_start_ip); alert(tcpip_lan_ip_alert);
+					document.tcpip.dhcpRangeStart.value = document.tcpip.dhcpRangeStart.defaultValue;
+					document.tcpip.dhcpRangeStart.focus();
+					return false;
+				}
+			
+				if(checkHostIPValid(document.tcpip.dhcpRangeEnd,document.tcpip.lan_mask,tcpip_lan_end_ip)== false) 
+						return false;
+			
+				if ( !checkSubnet(document.tcpip.lan_ip.value,document.tcpip.lan_mask.value,document.tcpip.dhcpRangeEnd.value)) {
+					alert(tcpip_lan_end_ip); alert(tcpip_lan_ip_alert);
+					document.tcpip.dhcpRangeEnd.value = document.tcpip.dhcpRangeEnd.defaultValue;
+					document.tcpip.dhcpRangeEnd.focus();
+					return false;
+				}
+			        
+			      
+			  }
+			  if ( document.tcpip.dhcp.selectedIndex != 1) {
+			   	if ( document.tcpip.lan_gateway.value=="")
+					document.tcpip.lan_gateway.value = '0.0.0.0';
+				
+				if (document.tcpip.lan_gateway.value!="0.0.0.0") {
+					if ( checkIpAddr(document.tcpip.lan_gateway, tcpip_lan_end_ip) == false )
+				    		return false;
+				    	if ( !checkSubnet(document.tcpip.lan_ip.value,document.tcpip.lan_mask.value,document.tcpip.lan_gateway.value)) {
+						alert(tcpip_lan_invalid_gw_ip); alert(tcpip_lan_ip_alert);
+						document.tcpip.lan_gateway.value = document.tcpip.lan_gateway.defaultValue;
+						document.tcpip.lan_gateway.focus();
+						return false;
+			      		}
+				}
+			  }
+			
+		
+			//********进度条相关***********
+				popCenterWindow();
+			 	$(".popup").show();
+				$(".popup,.popbox").css("display","block");
+				//********进度条相关***********
+			  return true;
+			}
+			function ipToInt(ip)
+			{
+			    var ips = ip.split('.');
+			    return ipv = (parseInt(ips[0],10)<<24)|(parseInt(ips[1],10)<<16)|(parseInt(ips[2], 10)<<8)|parseInt(ips[3], 10);
+			}
+			
+			function checkIptvAddr(ip, nm)
+			{
+			    var ipv = ipToInt(ip);
+			    var nmv = ipToInt(nm);
+			    var iptvNetAddr = (ipv & nmv);   
+			    return iptvNetAddr;
+			}
+			
+			function checkClientRange(start,end)
+		{
+		  start_d = getDigit(start,4);
+		  start_d += getDigit(start,3)*256;
+		  start_d += getDigit(start,2)*256;
+		  start_d += getDigit(start,1)*256;
+		
+		  end_d = getDigit(end,4);
+		  end_d += getDigit(end,3)*256;
+		  end_d += getDigit(end,2)*256;
+		  end_d += getDigit(end,1)*256;
+		
+		  if ( start_d < end_d )
+			return true;
+		
+		  return false;
+		}
+		
+		
+		</script>
+		
+	</body>
+</html>
