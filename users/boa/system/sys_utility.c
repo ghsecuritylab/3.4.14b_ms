@@ -62,6 +62,14 @@ void update_dns_resolv_file()
 		system(cmdbuff);
 	}
 #endif
+ system("killall klinkS");
+
+	sprintf(cmdbuff, "echo 10f 0 > proc/phyPower");
+    system(cmdbuff);
+    sleep(1);
+    sprintf(cmdbuff, "echo 10f 1 > proc/phyPower");
+    system(cmdbuff);
+	
 	return 0;
 }
 

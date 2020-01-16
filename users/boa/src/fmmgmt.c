@@ -48,6 +48,10 @@
 #include "slaveUpgrade.h"
 #include "remoteUpgrade.h"
 
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/wireless.h>
+
 #define DEFAULT_GROUP		"administrators"
 #define ACCESS_URL		"/"
 
@@ -8916,6 +8920,54 @@ char* getUploadVar(char *upload_data, const char *var, char *default_value)
 	}
 }
 
+static int GetInAddr( char *interface, ADDR_T type, void *pAddr )
+{
+    struct ifreq ifr;
+    int skfd=0, found=0;
+    struct sockaddr_in *addr;
+
+    skfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if(skfd==-1)
+		return 0;
+		
+    strcpy(ifr.ifr_name, interface);
+    if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0){
+    	close( skfd );
+		return (0);
+	}
+    if (type == HW_ADDR) {
+    	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) >= 0) {
+		memcpy(pAddr, &ifr.ifr_hwaddr, sizeof(struct sockaddr));
+		found = 1;
+	}
+    }
+    else if (type == IP_ADDR) {
+	if (ioctl(skfd, SIOCGIFADDR, &ifr) == 0) {
+		addr = ((struct sockaddr_in *)&ifr.ifr_addr);
+		*((struct in_addr *)pAddr) = *((struct in_addr *)&addr->sin_addr);
+		found = 1;
+	}
+    }
+    else if (type == SUBNET_MASK) {
+	if (ioctl(skfd, SIOCGIFNETMASK, &ifr) >= 0) {
+		addr = ((struct sockaddr_in *)&ifr.ifr_addr);
+		*((struct in_addr *)pAddr) = *((struct in_addr *)&addr->sin_addr);
+		found = 1;
+	}
+    }
+	else if (type == DST_IP_ADDR)
+	{
+		if (ioctl(skfd, SIOCGIFDSTADDR, &ifr) >= 0) {
+		addr = ((struct sockaddr_in *)&ifr.ifr_addr);
+		*((struct in_addr *)pAddr) = *((struct in_addr *)&addr->sin_addr);
+		found = 1;
+	}
+	}
+    close( skfd );
+    return found;
+
+}
+
 void formUpgradeSlave(request *wp, char * path, char * query)
 {
 	//int fh;
@@ -9137,20 +9189,32 @@ void formUpgradeSlave(request *wp, char * path, char * query)
 #endif   
         if(ip_addr[0])
         {
-            if(SendFileToSlave(&wp->upload_data[first_head_offset], head_offset - first_head_offset, ip_addr, 80)>0)
+            struct in_addr	local_ip;
+            char *local_ip_str = NULL;
+            GetInAddr("br0", IP_ADDR, (void *)&local_ip );
+            local_ip_str = inet_ntoa(local_ip);
+            if(local_ip_str && !strcmp(local_ip_str, ip_addr))
             {
-
-                sprintf(tmpBuf, "send file ok!file size = %d", head_offset - first_head_offset);
-                
-                sprintf(lastUrl,"%s","/softwareup.html");
-            	sprintf(okMsg,"%s",tmpBuf);
-            	countDownTime = UPGRADE_COUNT_DOWN_SEC;
-            	send_redirect_perm(wp, COUNTDOWN_PAGE);
+                sprintf(tmpBuf, "please wait for the slave to synchronize, and try again!");
+                ERR_MSG(tmpBuf);
             }
             else
             {
-                sprintf(tmpBuf, "download fail!", head_offset - first_head_offset);
-                ERR_MSG(tmpBuf);
+                if(SendFileToSlave(&wp->upload_data[first_head_offset], head_offset - first_head_offset, ip_addr, 80)>0)
+                {
+
+                    sprintf(tmpBuf, "send file ok!file size = %d", head_offset - first_head_offset);
+                    
+                    sprintf(lastUrl,"%s","/softwareup.html");
+                	sprintf(okMsg,"%s",tmpBuf);
+                	countDownTime = UPGRADE_COUNT_DOWN_SEC;
+                	send_redirect_perm(wp, COUNTDOWN_PAGE);
+                }
+                else
+                {
+                    sprintf(tmpBuf, "download fail!");
+                    ERR_MSG(tmpBuf);
+                }
             }
         }
         else

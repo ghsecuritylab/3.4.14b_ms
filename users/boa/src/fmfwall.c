@@ -1657,7 +1657,132 @@ void convertIntToString(char* str, int intnum)
         }
     }
 }
+enum DEV_TYPE{
+	TYPE_ERROR = -1,
+	TYPE_HOSTNAME = 0,
+	TYPE_MAC
+};
+typedef struct parental_control_dev_info
+{
+	int  dev_num;
+	char mac[MAX_STA_NUM][32];
+	char hostname[MAX_STA_NUM][64];
+}PARENTAL_CONCTROL_DEV_INFO, *PARENTAL_CONCTROL_DEV_INFO_P;
+int get_dev_type(char *p_dst)
+{
+	unsigned int addr[6] = {0};
 
+	if(p_dst == NULL || strlen(p_dst)==0)
+		return TYPE_ERROR;
+	
+	if (6 != sscanf(p_dst, "%02X:%02X:%02X:%02X:%02X:%02X", &addr[0], &addr[1], &addr[2], &addr[3],&addr[4],&addr[5]))
+	{
+		printf("it is not mac!!\n");
+		return TYPE_HOSTNAME;
+	}
+
+	return TYPE_MAC;
+}
+int get_hostname_from_mac(char *p_hostname, char* p_mac)
+{
+	RTK_LAN_DEVICE_INFO_T devinfo[MAX_STA_NUM] = {0};
+	int nBytesSent=0;
+	int num = 0;
+	int i=0;
+	char macEntry[32]={0};
+
+	if (NULL == p_mac || strlen(p_mac) == 0)
+		return 0;
+
+	rtk_get_lan_device_info(&num, devinfo, MAX_STA_NUM);
+	
+	for (i=0; i < num; i++)
+	{
+		sprintf(macEntry, "%02x:%02x:%02x:%02x:%02x:%02x", 
+			devinfo[i].mac[0], devinfo[i].mac[1], devinfo[i].mac[2], devinfo[i].mac[3],devinfo[i].mac[4],devinfo[i].mac[5]);
+		//printf("[%s %d]macEntry = %s, p_mac = %s\n",__FUNCTION__, __LINE__, macEntry, p_mac);
+		if (!strcasecmp(macEntry, p_mac) && (strlen(devinfo[i].hostname)>0) 
+			&& (0!=strcmp(devinfo[i].hostname, "---")))
+		{
+			strcpy(p_hostname, devinfo[i].hostname);
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+void to_lower(char *str)
+{
+	int i=0;
+	while(str[i]!=0)
+	{
+		if((str[i]>='A')&&(str[i]<='Z'))
+		str[i]+=32;
+		i++;
+	}
+}
+
+int formatParentContrlList(char *p_list, PARENTAL_CONCTROL_DEV_INFO_P parental_dev)
+{
+	int ret = 0;
+	char *p_tmp = 0;
+	char buffer[128] = {0};
+	char sta_mac[32] = {0};
+	char sta_name[64] = {0};
+	int i;
+	
+	if (strlen(p_list)<=0)
+		return -1;
+
+	p_tmp = strstr(p_list, ";");
+	if (p_tmp==NULL)
+	{
+		ret = get_dev_type(p_list); 	
+		if (ret == TYPE_MAC)
+		{
+			to_lower(p_list);
+			strcpy(parental_dev->mac[parental_dev->dev_num], p_list);
+			memset(sta_name, 0, sizeof(sta_name));
+			if(get_hostname_from_mac(sta_name, p_list))
+				strcpy(parental_dev->mac[parental_dev->dev_num], sta_name);
+			parental_dev->dev_num++;
+		}
+		else
+		{
+			strcpy(parental_dev->hostname[parental_dev->dev_num], buffer);
+			parental_dev->dev_num++;
+		}
+	}
+	else
+	{
+		while (p_tmp!=NULL)
+		{
+			memset(buffer, 0, sizeof(buffer));
+			strncpy(buffer, p_list, p_tmp-p_list);
+			ret = get_dev_type(buffer); 	
+			if ( TYPE_MAC == ret )
+			{
+				to_lower(buffer);
+				strcpy(parental_dev->mac[parental_dev->dev_num], buffer);
+				memset(sta_name, 0, sizeof(sta_name));
+				if(get_hostname_from_mac(sta_name, buffer))
+					strcpy(parental_dev->mac[parental_dev->dev_num], sta_name);
+				parental_dev->dev_num++;
+			}
+			else if ( TYPE_HOSTNAME == ret )
+			{
+				strcpy(parental_dev->hostname[parental_dev->dev_num], buffer);
+				parental_dev->dev_num++;
+			}
+			p_list=p_tmp+1;
+			p_tmp = strstr(p_list, ";");
+		}
+	}
+	
+	return 0;
+}
+
+#define PARENTAL_CONCTRL_STA_LENGTH 	(64*64)
 cJSON *getParentControlListJSON()
 {
 	int nBytesSent=0, parentEntryNum;
@@ -1669,7 +1794,9 @@ cJSON *getParentControlListJSON()
 	char tmpBuf[7]={0};
     RTK_LAN_DEVICE_INFO_T devinfo[MAX_STA_NUM] = {0};
     int i;
-
+	int j;
+	char sta_list[PARENTAL_CONCTRL_STA_LENGTH]={0};
+	
 	if ( !apmib_get(MIB_PARENT_CONTRL_TBL_NUM, (void *)&parentEntryNum)) {
   		fprintf(stderr, "Get table entry error!\n");
 		return -1;
@@ -1703,7 +1830,26 @@ cJSON *getParentControlListJSON()
 		memset(tmpString,0,sizeof(tmpString));
 		convertIntToString(tmpString,entry.parentContrlEndTime);
 		cJSON_AddStringToObject(parameters,"parentContrlEndTime",tmpString);
-		cJSON_AddStringToObject(parameters,"parentContrlTerminal",entry.parentContrlTerminal);
+
+		PARENTAL_CONCTROL_DEV_INFO	dev_info;
+		memset(&dev_info, 0, sizeof(dev_info));
+		formatParentContrlList(entry.parentContrlTerminal, &dev_info);
+		memset(sta_list, 0, PARENTAL_CONCTRL_STA_LENGTH);
+		for(j=0; j<dev_info.dev_num; j++)
+		{
+			if(strlen(dev_info.hostname[j])>0)
+			{
+				strcat(sta_list, dev_info.hostname[j]);
+				strcat(sta_list, ";");
+			}
+			else
+			{
+				strcat(sta_list, dev_info.mac[j]);
+				strcat(sta_list, ";");
+			}
+		}
+		//printf("parentContrlTerminal = %s\n", sta_list);
+		cJSON_AddStringToObject(parameters,"parentContrlTerminal", sta_list);
 
 	}
 	//printf("-------------->\njson=%s\n-------------->\n",cJSON_Print(topRoot));
@@ -1733,23 +1879,23 @@ int parentContrlTerminalList(request *wp, int argc, char **argv)
 	 char macEntry[30]={0};
 	rtk_get_lan_device_info(&num, devinfo, MAX_STA_NUM);
 	 
-	for (i=1; i<=num; i++) 
+	for (i=0; i<num; i++) 
 	{
-		      sprintf(macEntry,"%02x%02x%02x", devinfo[i-1].mac[0], devinfo[i-1].mac[1], devinfo[i-1].mac[2]);
+		      sprintf(macEntry,"%02x%02x%02x", devinfo[i].mac[0], devinfo[i].mac[1], devinfo[i].mac[2]);
 		       if(strncasecmp(macEntry,"d05157",6)==0)
       		continue;
 		   memset(macEntry,0,sizeof(macEntry));   
       //if(devinfo[i].on_link == 1 && devinfo[i].slave_flg == 1)
-      if(devinfo[i-1].dhcp_client_flg == 1 || (devinfo[i-1].on_link == 1 && devinfo[i-1].conType == RTK_ETHERNET))
+      if(devinfo[i].dhcp_client_flg == 1 || (devinfo[i].on_link == 1 && devinfo[i].conType == RTK_ETHERNET))
       {
-	     sprintf(macEntry,"%02X:%02X:%02X:%02X:%02X:%02X", devinfo[i-1].mac[0], devinfo[i-1].mac[1], devinfo[i-1].mac[2], devinfo[i-1].mac[3],devinfo[i-1].mac[4],devinfo[i-1].mac[5]);
+	     sprintf(macEntry,"%02X:%02X:%02X:%02X:%02X:%02X", devinfo[i].mac[0], devinfo[i].mac[1], devinfo[i].mac[2], devinfo[i].mac[3],devinfo[i].mac[4],devinfo[i].mac[5]);
 		nBytesSent += req_format_write(wp, ("<tr class=\"tbl_body\">"
 
       	"<td align=left width=\"12%%\" ><p>%s</p></td><td align=left width=\"6%%\"><p>%s</p><input type=hidden name=\"parentContrlSta%d\" value=\"%s\" size=\"2\"></td>\n"
       	     	
        	"<td align=center width=\"4%%\" ><input type=\"checkbox\" name=\"terminalSelect%d\" value=\"ON\"></td></tr>\n"), 
        // strncmp(devinfo[i].hostname,"---",3)?devinfo[i].hostname:macEntry,i,strncmp(devinfo[i].hostname,"---",3)?devinfo[i].hostname:macEntry, i);
-        strncmp(devinfo[i-1].hostname,"---",3)?devinfo[i-1].hostname:"Anonymous Terminal",macEntry,i,strncmp(devinfo[i-1].hostname,"---",3)?devinfo[i-1].hostname:macEntry, i);
+        strncmp(devinfo[i].hostname,"---",3)?devinfo[i].hostname:"Anonymous Terminal",macEntry,i,macEntry, i);
       }
 #if 0
 		printf("\n(---**>table num=%d:\n------table--%d)terminal=%s \n", \

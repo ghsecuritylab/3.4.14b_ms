@@ -485,7 +485,6 @@ cJSON *getRemoteVersionLog()
  topRoot=cJSON_CreateObject();
  cJSON_AddItemToObject(topRoot, "remoteUprateInfo",root=cJSON_CreateArray());
  cJSON_AddItemToArray(root,parameters=cJSON_CreateObject());
-
  if(remoteUpgradeInfo.firmwareCheckStatus==FIRMWARE_ERROR_NETWORK_UNREACHABLE)
  {
   cJSON_AddNumberToObject(parameters,"firmwareCheckStatus",FIRMWARE_ERROR_NETWORK_UNREACHABLE);  
@@ -499,9 +498,11 @@ cJSON *getRemoteVersionLog()
 //  if(remoteUpgradeInfo.checkVersionStatus)
 //  {
   cJSON_AddStringToObject(parameters,"remoteVersionLog",remoteUpgradeInfo.versionUpdateLog);
+  cJSON_AddStringToObject(parameters,"remoteVersionLogEn",remoteUpgradeInfo.versionUpdateLogEn);
+
 //  }
  }
- //printf("-------------->getRemoteVersionLog=\n[%s]\n-------------->\n",cJSON_Print(topRoot));
+ printf("-------------->getRemoteVersionLog=\n[%s]\n-------------->\n",cJSON_Print(topRoot));
  return topRoot;
 }
 

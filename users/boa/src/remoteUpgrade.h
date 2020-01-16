@@ -43,6 +43,10 @@
 //extern fwVersion;
 extern unsigned char *fwVersion;
 #define LOCAL_FW_VERSION	fwVersion
+#define UPGRADE_FILE_SERVER_PATH_TEST "http://%s/firmwareTest/latest"  //http://120.79.61.154/firmwareTest/latest
+#define UPGRADE_TEST_ON_TAG_FILE "/tmp/UPGRADE_TEST_ON"
+
+
 
 
 char * httpGet(const char *url);
@@ -55,6 +59,7 @@ typedef struct
     char md5[64];
     int checkNetStatus;
 	char versionUpdateLog[1024];
+    char versionUpdateLogEn[1024];
 	unsigned int totalSize; 
 	int isRemoteUpgrade;                   // 0---skip remote upgrade  1---ready to update process
     char remoteUpgradeStatus;             //0---upgrade process done  1---ready to update process

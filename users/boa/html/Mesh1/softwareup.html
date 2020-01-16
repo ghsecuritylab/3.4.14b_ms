@@ -272,7 +272,7 @@
 //			var versionMessage={"remoteUprateInfo":[{"checkVersionStatus":0}]}
 	    	var versionMessage=<% getInfo("checkRemoteFwVersion"); %>;
 //			 var object_json = {"device_name":"EasyMesh_Device","ip_addr":"192.168.1.10","mac_address":"00e04c8136c1","device_version":"VM1.0.7","neighbor_devices":[{"neighbor_mac":"00e04c8199c1","neighbor_name":"EasyMesh_Device","neighbor_rssi":"15","neighbor_band":"5G"},{"neighbor_mac":"00e04c8196c1","neighbor_name":"EasyMesh_Device","neighbor_rssi":"20","neighbor_band":"ERR"}],"station_info":[{"station_mac":"2054fa2a55ab","station_rssi":"45","station_connected_band":"5G","station_downlink":"292","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Apple","station_link_time":"null"},{"station_mac":"d016b4f4083f","station_rssi":"38","station_connected_band":"5G","station_downlink":"234","station_uplink":"6","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Huawei","station_link_time":"null"},{"station_mac":"a45046fdc3c5","station_rssi":"49","station_connected_band":"5G","station_downlink":"866","station_uplink":"6","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Huawei","station_link_time":"null"},{"station_mac":"c0ccf8d4ba1f","station_rssi":"72","station_connected_band":"5G","station_downlink":"866","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Samsung","station_link_time":"null"},{"station_mac":"9c4fda6281fa","station_rssi":"54","station_connected_band":"2G","station_downlink":"65","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Samsung","station_link_time":"null"},{"station_mac":"4c49e30a1cee","station_rssi":"43","station_connected_band":"2G","station_downlink":"65","station_uplink":"1","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Samsung","station_link_time":"null"},{"station_mac":"04d13aef56e3","station_rssi":"52","station_connected_band":"2G","station_downlink":"72","station_uplink":"6","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Xiaomi","station_link_time":"null"},{"station_mac":"c09ad0de69af","station_rssi":"40","station_connected_band":"2G","station_downlink":"26","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Xiaomi","station_link_time":"null"}],"child_devices":[{"device_name":"EasyMesh_Device","ip_addr":"192.168.1.100","mac_address":"00e04c8199c1","device_version":"VM1.0.6","neighbor_devices":[],"station_info":[],"child_devices":[]},{"device_name":"EasyMesh_Device","ip_addr":"192.168.1.102","mac_address":"00e04c8196c1","device_version":"VM1.0.4","neighbor_devices":[{"neighbor_mac":"00e04c7396c1","neighbor_name":"EasyMesh_Device","neighbor_rssi":"40","neighbor_band":"5G"}],"station_info":[{"station_mac":"04d13aef56e3","station_rssi":"52","station_connected_band":"2G","station_downlink":"72","station_uplink":"6","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"LG","station_link_time":"null"},{"station_mac":"c09ad0de69af","station_rssi":"40","station_connected_band":"2G","station_downlink":"26","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"LG","station_link_time":"null"}],"child_devices":[{"device_name":"EasyMesh_Device","ip_addr":"192.168.1.101","mac_address":"00e04c7396c1","device_version":"VM1.0.6","neighbor_devices":[],"station_info":[{"station_mac":"04d13aef56e3","station_rssi":"52","station_connected_band":"2G","station_downlink":"72","station_uplink":"6","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Motorola","station_link_time":"null"},{"station_mac":"c09ad0de69af","station_rssi":"40","station_connected_band":"2G","station_downlink":"26","station_uplink":"24","station_ip":"192.168.1.100","station_hostname":"chenligui","station_brand":"Nokia","station_link_time":"null"}],"child_devices":[]}]}]};
-
+			
 	    	var object_json=<%showMeshTopology()%>;
 			var MWJ_progBar = 0;
 			var time=0;
@@ -283,7 +283,7 @@
 			var childList_D=[];
 			var dataObject;
 			var dataObjectList=[];
-			var ver_status,ver_log,ver_version;
+			var ver_status,ver_log,ver_log_en,ver_version;
 			var device_verion;
 			var ip_address_up;
 	
@@ -350,15 +350,18 @@
     					$("#up_tips,#up_tips2,.softup_content_mes").css("display","none");
     					ver_status=null;
     					ver_log=null;
+    					ver_log_en=null;
 						ver_version=null;
     				}else{
     					ver_status=versionMessage[i][0].checkVersionStatus;
 	    				var arr = Object.keys(versionMessage[i][0]); 
 	    				if(arr.length>1){
 	    					ver_log=versionMessage[i][0].remoteVersionLog;
+	    					ver_log_en=versionMessage[i][0].remoteVersionLogEn;
 							ver_version=versionMessage[i][0].version;
 	    				}else{
 	    					ver_log=null;
+	    					ver_log_en=null;
 							ver_version=null;
 	    				}
     				}
@@ -374,7 +377,12 @@
 			    	}else{
 			    		$("#up_tips").css("display","none");
 						$(".softup_content,.softup_content_mes,#up_tips2,.vm_version").css("display","block");
-						$(".ver_message").text(ver_log);
+						if(i18nLanguage=='en'){
+							$(".ver_message").text(ver_log_en);
+						}else{
+							$(".ver_message").text(ver_log);
+						}
+						
 			    	}
 			    	$(".current_version").attr("disabled",true);
     			}

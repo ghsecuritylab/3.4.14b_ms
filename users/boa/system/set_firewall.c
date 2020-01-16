@@ -2859,8 +2859,12 @@ enum DEV_TYPE{
 
 int get_dev_type(char *p_dst)
 {
-	if (strlen(p_dst) != strlen("00:00:00:00:00:00"))
+	unsigned int addr[6] = {0};
+
+	if (6 != sscanf(p_dst, "%02X:%02X:%02X:%02X:%02X:%02X", &addr[0], &addr[1], &addr[2], &addr[3],&addr[4],&addr[5]))
+	{
 		return TYPE_HOSTNAME;
+	}
 
 	return TYPE_MAC;
 }
@@ -3240,28 +3244,14 @@ int parentControlSetting(int parentContrlAction,const char* macEntry)
 
 	if (SET_PARENT_CONTROL_LIST==parentContrlAction)
 	{
-#if defined(CONFIG_RTL_FAST_FILTER)
-		memset(cmdBuffer, 0, sizeof(cmdBuffer));
-		sprintf(cmdBuffer, "rtk_cmd filter add --mac-src %s", macEntry);
-		system(cmdBuffer);
-#else
-	#if defined(CONFIG_APP_EBTABLES)&&defined(CONFIG_EBTABLES_KERNEL_SUPPORT)
-		RunSystemCmd(NULL_FILE, Ebtables, ADD, INPUT,_src, macEntry, jump, DROP,NULL_STR);  
-		RunSystemCmd(NULL_FILE, Ebtables, ADD, OUTPUT,_dest, macEntry, jump, DROP,NULL_STR);    
-	#else
 		RunSystemCmd(NULL_FILE, Iptables, ADD, FORWARD, match, "mac" ,mac_src, macEntry, jump, DROP, NULL_STR);
 		RunSystemCmd(NULL_FILE, Iptables, ADD, INPUT, match, "mac" ,mac_src, macEntry, jump, DROP, NULL_STR);
-	#endif		
-#endif
-		memset(cmdBuffer, 0, sizeof(cmdBuffer));
-		sprintf(cmdBuffer, "rtk_cmd igmp_delete %02X:%02X:%02X:%02X:%02X:%02X", &addr[0], &addr[1], &addr[2], &addr[3],&addr[4],&addr[5]);
-		system(cmdBuffer);
 	}  
 	
 	if (DELETE_PARENT_CONTROL_LIST==parentContrlAction)
 	{
-		RunSystemCmd(NULL_FILE, Iptables, INSERT, FORWARD, match, "mac" ,mac_src, macEntry, jump, ACCEPT, NULL_STR);
-		RunSystemCmd(NULL_FILE, Iptables, INSERT, INPUT, match, "mac" ,mac_src, macEntry, jump, ACCEPT, NULL_STR);
+		RunSystemCmd(NULL_FILE, Iptables, DEL, FORWARD, match, "mac" ,mac_src, macEntry, jump, DROP, NULL_STR);
+		RunSystemCmd(NULL_FILE, Iptables, DEL, INPUT, match, "mac" ,mac_src, macEntry, jump, DROP, NULL_STR);
 	}
 
 	return 0;

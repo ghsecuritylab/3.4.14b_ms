@@ -307,6 +307,7 @@ remoteUpgrade_t getUpgradeFileInfo(remoteUpgrade_t fileInfo,char *recvData)
 	strncpy(fileInfo.md5,cJSON_GetObjectItem(jasonObj,"md5")->valuestring, sizeof(fileInfo.md5));
 	strncpy(fileInfo.remoteFwVersion,cJSON_GetObjectItem(jasonObj,"version")->valuestring, sizeof(fileInfo.remoteFwVersion));
 	strncpy(fileInfo.versionUpdateLog,cJSON_GetObjectItem(jasonObj,"content")->valuestring, sizeof(fileInfo.versionUpdateLog));
+    strncpy(fileInfo.versionUpdateLogEn,cJSON_GetObjectItem(jasonObj,"content_en")->valuestring, sizeof(fileInfo.versionUpdateLogEn));
 //	printf("--->downurl=%s remoteFwVersion=%s md5=%s\n",fileInfo.downloadUrl,fileInfo.remoteFwVersion,fileInfo.md5);
    }
    if(jsonData != NULL)
@@ -327,7 +328,14 @@ int getFileRequestUrl(char url[])
   hostIpAddr=parseDns(UPGRADE_GILE_SERVER_HOST_NAME);
   ip=ntohl(hostIpAddr);
   sprintf(tmpBuf,IP_DOT_FORMATE,IP_SEGMENT(ip));
-  sprintf(url,UPGRADE_FILE_SERVER_PATH,tmpBuf);
+  if(access(UPGRADE_TEST_ON_TAG_FILE, F_OK) >= 0)
+  {
+    sprintf(url,UPGRADE_FILE_SERVER_PATH_TEST,tmpBuf);
+  }
+  else
+  {
+    sprintf(url,UPGRADE_FILE_SERVER_PATH,tmpBuf);
+  }
   return 0;
 }
 
